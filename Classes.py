@@ -45,15 +45,15 @@ element_no_effect = {
 
 
 # returns a function that modifies pokemon behavior based on move statuses / unfinished
-def status_effects(status):
+def status_effects():
     pass
 
 
 # defines moves and their abilities HORRIBLY UNFINISHED
 class Move:
 
-    def __init__(self, type, damage, accuracy=100, status_effect=None):
-        self.type = type
+    def __init__(self, element, damage, accuracy: int = 100, status_effect=None):
+        self.type = element
         self.damage = damage
         self.accuracy = accuracy
         self.status_effects = status_effect
@@ -105,26 +105,28 @@ class Pokemon:
         self.name = name
         self.lvl = lvl
         self.base_stats = base_stats
+        # checks to see if EV's are imported from an evolution, or if its a newly caught pokemon
         if ev is None:
             self.EV = {"HP": 0, "ATTACK": 0, "DEFENSE": 0, "SPEED": 0, "SPECIAL": 0}
         else:
             self.EV = ev
+        # checks to see if IVs are imported from a pre-evolution or if a newly caught pokemon, leaves out hp iv which
+        # is calculated using the other ivs, then calculates HP iv and inserts it into self.iv
         if ivs is None:
             self.IV = {stat: random.randint(0, 15) for stat in self.base_stats.keys() if stat != "HP"}
+            hp_binary = ""
+            for item in self.IV.values():
+                hp_binary += str(bin(item)[-1])
+            self.IV["HP"] = int(hp_binary, 2)
         else:
             self.IV = ivs
-        hp_binary = ''
-        for item in self.IV.values():
-            hp_binary += str(bin(item)[-1])
-        self.IV["HP"] = int(hp_binary, 2)
-
+        # function for determining a pokemon's max hp, rounding errors all over the place, might need to find out a way
+        # clean that up
         self.hp = math.floor((math.floor(((self.base_stats["HP"] + self.IV["HP"]) * 2 + math.floor(
             math.ceil(math.sqrt(self.EV["HP"])) / 4)) * self.lvl) / 100) + self.lvl + 10)
-
         self.battle_stats = {stat: int(math.floor((((self.base_stats[stat] + self.IV[stat]) * 2 + math.floor(
             math.ceil(math.sqrt(self.EV[stat])) / 4)) * self.lvl) / 100) + 5) for stat in self.base_stats.keys() if
                              stat != "HP"}
-
         self.current_hp = self.hp
         self.xp = self.lvl ** 3
         self.xp_to_next = (self.lvl + 1) ** 3
@@ -152,26 +154,36 @@ class Pokemon:
 
     # defines weather or not a pokemon is passed out / finished
     def Feinted(self):
-        if self.hp <= 0:
+        if self.current_hp <= 0:
             self.ko = True
+        return print("{0} has feinted".format(self.name))
 
     # defines when a pokemon's hp changes
     def Hp_update(self, value):
+        # checks to see if incoming is damage
         if value <= 0:
             self.current_hp += value
             # placeholder update
             print("{0} took {1} damage".format(self.name, -value))
             if self.current_hp <= 0:
                 self.current_hp = 0
-                print("{0} has feinted".format(self.name))
-                self.feinted
-        if value > 0:
+                # calls the Feinted method to ko the pokemon
+                self.Feinted()
+
+        # checks to see if incoming is healing
+        elif value > 0:
             self.current_hp += value
             if self.current_hp > self.hp:
                 self.current_hp = self.hp
                 print("{0} was healed to full.".format(self.name))
             else:
                 print("{0} gained {1} HP!".format(self.name, value))
+
+    def Revive(self, value):
+        if self.current_hp == 0:
+            self.current_hp += value
+            self.ko = False
+            print("{0} was revived and has {1} HP!".format(self.name, self.current_hp))
 
     # calculates EV gain of a pokemon when called (usually after a battle) / finished
     def Ev_gain(self, op_pokemon):
@@ -182,7 +194,6 @@ class Pokemon:
     # unfinished
     def Evolve_lvl(self):
         if self.name is not str(get_pokemon(self.pokemon)):
-            evolution = self.evolutions.pop("evolution")
             pass
 
     # changes pokemon level, unfinished/needs to check possible moves to learn
@@ -211,7 +222,7 @@ class Pokemon:
 # r should always be a number between 0 and 1, if no ratio is defined then it is always 50/50
 def get_gender(r=.5):
     g = random.randint(0, 100)
-    if g >= r * 100:
+    if g <= r * 100:
         return "Male"
     else:
         return "Female"
@@ -238,7 +249,7 @@ def get_pokemon(n, *kwargs):
         def __init__(self, name="Bulbasaur", lvl=pokemon_level(), *args):
             elements = ["GRASS", "POISON"]
             pokemon_n = 1
-            gender = get_gender()
+            gender = get_gender(.875)
             base_stats = {"HP": 45, "ATTACK": 49, "DEFENSE": 45, "SPEED": 45, "SPECIAL": 65}
             evolutions = {"level": 12, "evolution": 2}
 
@@ -248,7 +259,7 @@ def get_pokemon(n, *kwargs):
         def __init__(self, name="Ivysaur", lvl=pokemon_level(), *args):
             elements = ["GRASS, POISON"],
             pokemon_n = 2
-            gender = get_gender()
+            gender = get_gender(.875)
             base_stats = {"HP": 60, "ATTACK": 62, "DEFENSE": 63, "SPEED": 60, "SPECIAL": 80}
             evolutions = {"level": 4, 'evolution': [32, 3]}
 
@@ -258,7 +269,7 @@ def get_pokemon(n, *kwargs):
         def __init__(self, name="Venusaur", lvl=pokemon_level(), *args):
             elements = ["GRASS", "POISON"],
             pokemon_n = 3
-            gender = get_gender()
+            gender = get_gender(.875)
             base_stats = {"HP": 80, "ATTACK": 82, "DEFENSE": 83, "SPEED": 80, "SPECIAL": 100}
 
             super().__init__(name, elements, pokemon_n, gender, base_stats, lvl, *args)
@@ -267,7 +278,7 @@ def get_pokemon(n, *kwargs):
         def __init__(self, name="Charmander", lvl=pokemon_level(), *args):
             elements = ["FIRE"]
             pokemon_n = 4
-            gender = get_gender()
+            gender = get_gender(.875)
             base_stats = {"HP": 39, "ATTACK": 52, "DEFENSE": 43, "SPEED": 65, "SPECIAL": 50}
             evolutions = {"level": 16, "evolution": 5}
 
@@ -277,7 +288,7 @@ def get_pokemon(n, *kwargs):
         def __init__(self, name="Charmeleon", lvl=pokemon_level(), *args):
             elements = ["FIRE"]
             pokemon_n = 5
-            gender = get_gender()
+            gender = get_gender(.875)
             base_stats = {"HP": 58, "ATTACK": 64, "DEFENSE": 58, "SPEED": 80, "SPECIAL": 65}
             evolutions = {"level": 36, "evolution": 6}
 
@@ -287,36 +298,57 @@ def get_pokemon(n, *kwargs):
         def __init__(self, name="Charizard", lvl=pokemon_level(), *args):
             elements = ["FIRE"]
             pokemon_n = 6
-            gender = get_gender()
+            gender = get_gender(.875)
             base_stats = {"HP": 78, "ATTACK": 84, "DEFENSE": 78, "SPEED": 100, "SPECIAL": 86}
+            evolutions = None
 
-            super().__init__(name, elements, pokemon_n, gender, base_stats, lvl, *args)
+            super().__init__(name, elements, pokemon_n, gender, base_stats, evolutions, lvl, *args)
 
-    """class Squirtle(Pokemon):
+    class Squirtle(Pokemon):
         def __init__(self, name = "Squirtle", lvl = pokemon_level(), *args):
             elements = ["WATER"]
             pokemon_n = 7
-            gender = get_gender()
-            base_stats = {"HP": ,"ATTACK": ,"DEFENSE": , "SPEED": , "SPECIAL":}
+            gender = get_gender(.875)
+            base_stats = {"HP": 44,"ATTACK": 48,"DEFENSE": 65, "SPEED": 43, "SPECIAL": 50}
+            evolutions = {"level": 16, "evolution": 8}
 
-            super().__init__(name, elements, pokemon_n, gender, base_stats, lvl *args)"""
+            super().__init__(name, elements, pokemon_n, gender, base_stats, evolutions, lvl, *args)
+
+    class Wartortle(Pokemon):
+        def __init__(self, name="Wartortle", lvl=pokemon_level(), *args):
+            elements = ["WATER"]
+            pokemon_n = 8
+            gender = get_gender(.875)
+            base_stats = {"HP": 59, "ATTACK": 63, "DEFENSE": 80, "SPEED": 58, "SPECIAL": 65}
+            evolutions = {"level": 36, "evolution": 9}
+
+            super().__init__(name, elements, pokemon_n, gender, base_stats, evolutions, lvl, *args)
+
+    class Blastoise(Pokemon):
+        def __init__(self, name="Blastoise", lvl=pokemon_level(), *args):
+            elements = ["WATER"]
+            pokemon_n = 9
+            gender = get_gender()
+            base_stats = {"HP": 79,"ATTACK": 83,"DEFENSE": 100, "SPEED": 78, "SPECIAL": 85}
+            evolutions = None
+
+            super().__init__(name, elements, pokemon_n, gender, base_stats, evolutions, lvl, *args)
     # empty pokemon creation class
     """class (Pokemon):
-        def __init__(self, name = "", lvl=pokemon_level() *args):
+        def __init__(self, name = "", lvl=pokemon_level(), *args):
             elements = []
             pokemon_n =
             gender = get_gender()
-            base_stats = {"HP": ,"ATTACK": ,"DEFENSE": , "SPEED": , "SPECIAL"}
+            base_stats = {"HP": ,"ATTACK": ,"DEFENSE": , "SPEED": , "SPECIAL": }
             evolutions = {"level": , "evolution": }
 
-            super().__init__(name, elements, pokemon_n, gender, base_stats, evolutions, lvl, *args)
-    """
-    #  List of pokemon, used to return the class for the current pokemon
+            super().__init__(name, elements, pokemon_n, gender, base_stats, evolutions, lvl, *args)"""
+    #  List of pokemon, used to return the class for the currently generated pokemon
     pokemon = {
         0: None,
         1: Bulbasaur(*kwargs), 2: Ivysaur(*kwargs), 3: Venusaur(*kwargs),
         4: Charmander(*kwargs), 5: Charmeleon(*kwargs), 6: Charizard(*kwargs),
-        # 7: Squirtle(*args), 8: Wartortle(*args), 9: Blastoise(*args),
+        7: Squirtle(*kwargs), 8: Wartortle(*kwargs), 9: Blastoise(*kwargs),
         # 10: caterpie,11:metapod, 12:butterfree,
         # 13: weedle, 14: kakuna, 15:beedrill,
         # 16: pidgey, 17: pidgeotto, 18: pidgeot,
@@ -398,10 +430,10 @@ def get_pokemon(n, *kwargs):
         return pokemon[n]
 
 
-bulbasaur = get_pokemon(1, "Bulby", 10)
-bulbasaur.Ev_gain(bulbasaur)
-bulbasaur.Ev_gain(bulbasaur)
-bulbasaur.Ev_gain(bulbasaur)
-print(bulbasaur.EV)
+bulbasaur = get_pokemon(1, "Bulla", 40)
+wart = get_pokemon(8, "Warty", 40)
+blast = get_pokemon(9, "Blasty", 40)
 print(bulbasaur)
-print(bulbasaur)
+print(wart)
+print(blast)
+
